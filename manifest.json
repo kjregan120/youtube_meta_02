@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "YouTube Watch Logger (API-based)",
+  "version": "1.0.0",
+  "description": "Logs videos & Shorts watched on YouTube and fetches metadata via YouTube Data API v3 (no DOM scraping). Stores everything locally.",
+  "action": {
+    "default_title": "YouTube Watch Logger",
+    "default_popup": "popup.html"
+  },
+  "permissions": [
+    "storage",
+    "tabs",
+    "webNavigation"
+  ],
+  "host_permissions": [
+    "*://*.youtube.com/*",
+    "*://youtu.be/*",
+    "https://www.googleapis.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "options_page": "options.html"
+}

@@ -1,0 +1,66 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>YouTube Watch Logger — Settings</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; padding: 16px; max-width: 760px; }
+      h1 { font-size: 20px; }
+      label { display: block; margin: 12px 0 6px; font-weight: 600; }
+      input[type="text"] { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; }
+      .row { display: flex; gap: 12px; align-items: center; }
+      .help { color: #555; font-size: 13px; }
+      .ok { background: #e6f4ea; color: #137333; padding: 6px 8px; border-radius: 6px; display: inline-block; }
+      button { padding: 8px 12px; border: 1px solid #ccc; background: #f7f7f7; border-radius: 6px; cursor: pointer; }
+      button:hover { background: #eee; }
+      .switch { display: inline-flex; align-items: center; gap: 8px; margin: 8px 0 16px; }
+    </style>
+  </head>
+  <body>
+    <h1>Settings</h1>
+
+    <div class="switch">
+      <input id="enabled" type="checkbox" />
+      <label for="enabled" style="margin:0;font-weight:500;">Enable logging</label>
+    </div>
+
+    <label for="apiKey">YouTube Data API key</label>
+    <input id="apiKey" type="text" placeholder="AIza..." />
+    <p class="help">Create a key in Google Cloud Console → Enable <em>YouTube Data API v3</em> → Credentials → <em>API key</em>. For personal use, restrict by API and quota. The key is stored locally in your browser.</p>
+
+    <label for="profile">Profile name (child)</label>
+    <input id="profile" type="text" placeholder="e.g., Alex" />
+
+    <div style="margin-top:16px" class="row">
+      <button id="save">Save</button>
+      <span id="status"></span>
+    </div>
+
+    <h2>How it works</h2>
+    <p class="help">The extension listens for visits to <code>youtube.com/watch</code>, <code>youtube.com/shorts</code>, or <code>youtu.be/…</code> in the address bar. It extracts only the video ID from the URL (no page scraping), then calls the official YouTube Data API to fetch title, description, and duration. Entries are stored locally.</p>
+
+    <script>
+      function load() {
+        chrome.storage.local.get({ apiKey: "", profile: "Default", enabled: true }, (cfg) => {
+          document.getElementById('apiKey').value = cfg.apiKey || '';
+          document.getElementById('profile').value = cfg.profile || 'Default';
+          document.getElementById('enabled').checked = !!cfg.enabled;
+        });
+      }
+      function save() {
+        const apiKey = document.getElementById('apiKey').value.trim();
+        const profile = document.getElementById('profile').value.trim() || 'Default';
+        const enabled = document.getElementById('enabled').checked;
+        chrome.storage.local.set({ apiKey, profile, enabled }, () => {
+          const s = document.getElementById('status');
+          s.textContent = 'Saved';
+          s.className = 'ok';
+          setTimeout(() => { s.textContent = ''; s.className=''; }, 1500);
+        });
+      }
+      document.getElementById('save').addEventListener('click', save);
+      load();
+    </script>
+  </body>
+</html>
