@@ -1,8 +1,5 @@
-// Minimal, API-only logger: detects watch/shorts URLs, fetches metadata via YouTube Data API, stores locally.
-
 const YT_API_ENDPOINT = "https://www.googleapis.com/youtube/v3/videos";
 
-// Helper: parse ISO 8601 duration (PT#H#M#S) -> seconds
 function parseISODurationToSeconds(iso) {
   if (!iso) return null;
   const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
@@ -13,7 +10,6 @@ function parseISODurationToSeconds(iso) {
   return h * 3600 + min * 60 + s;
 }
 
-// Helper: extract video ID from a YouTube URL without scraping the DOM
 function extractVideoId(urlString) {
   try {
     const url = new URL(urlString);
@@ -26,20 +22,17 @@ function extractVideoId(urlString) {
 
     if (!host.endsWith("youtube.com")) return null;
 
-    // Standard watch page
     if (url.pathname === "/watch") {
       return url.searchParams.get("v");
     }
 
-    // Shorts
     if (url.pathname.startsWith("/shorts/")) {
-      const parts = url.pathname.split("/").filter(Boolean); // ["shorts", ":id"]
+      const parts = url.pathname.split("/").filter(Boolean);
       return parts[1] || null;
     }
 
-    // Embed
     if (url.pathname.startsWith("/embed/")) {
-      const parts = url.pathname.split("/").filter(Boolean); // ["embed", ":id"]
+      const parts = url.pathname.split("/").filter(Boolean);
       return parts[1] || null;
     }
 
@@ -49,8 +42,7 @@ function extractVideoId(urlString) {
   }
 }
 
-// Debounce map to avoid duplicate logs on SPA navigations
-const recentByTab = new Map(); // tabId -> { videoId, ts }
+const recentByTab = new Map();
 
 async function getSettings() {
   return new Promise((resolve) => {
@@ -62,8 +54,6 @@ async function setLogEntry(entry) {
   return new Promise((resolve) => {
     chrome.storage.local.get({ watchLog: [] }, (data) => {
       const log = data.watchLog || [];
-
-      // Avoid exact duplicates (same videoId within last 5 minutes)
       const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
       const isDup = log.some(
         (e) => e.videoId === entry.videoId && new Date(e.watchedAt).getTime() >= fiveMinutesAgo
@@ -71,7 +61,6 @@ async function setLogEntry(entry) {
       if (!isDup) {
         log.push(entry);
       }
-
       chrome.storage.local.set({ watchLog: log }, () => resolve());
     });
   });
@@ -93,7 +82,11 @@ async function fetchVideoMetadata(videoId, apiKey) {
   return {
     title: snippet?.title || "",
     description: snippet?.description || "",
-    durationSeconds: parseISODurationToSeconds(contentDetails?.duration) ?? null,
+    durationSeconds: (function () {
+      const d = contentDetails?.duration; 
+      if (!d) return null; 
+      return parseISODurationToSeconds(d);
+    })(),
     channelTitle: snippet?.channelTitle || "",
     thumbnails: snippet?.thumbnails || {},
   };
@@ -106,7 +99,7 @@ async function handlePossibleWatch(url, tabId) {
   const now = Date.now();
   const last = recentByTab.get(tabId);
   if (last && last.videoId === videoId && now - last.ts < 10_000) {
-    return; // skip quick duplicates
+    return;
   }
   recentByTab.set(tabId, { videoId, ts: now });
 
@@ -130,26 +123,22 @@ async function handlePossibleWatch(url, tabId) {
       watchedAt: new Date().toISOString(),
     };
     await setLogEntry(entry);
-    // Optional: notify silently in the background (no user permission required for chrome.notifications in MV3 if not used)
     console.info("Logged YouTube watch:", entry);
   } catch (err) {
     console.error("Failed to log video via API:", err);
   }
 }
 
-// Listen for SPA navigations (YouTube is heavily client-rendered)
 chrome.webNavigation.onHistoryStateUpdated.addListener((details) => {
-  if (details.frameId !== 0) return; // top-level only
+  if (details.frameId !== 0) return;
   handlePossibleWatch(details.url, details.tabId);
 });
 
-// Also catch full loads
 chrome.webNavigation.onCompleted.addListener((details) => {
   if (details.frameId !== 0) return;
   handlePossibleWatch(details.url, details.tabId);
 });
 
-// Cleanup cache when tab removed
 chrome.tabs.onRemoved.addListener((tabId) => {
   recentByTab.delete(tabId);
 });
